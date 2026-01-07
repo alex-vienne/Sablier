@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spark • Splat Reveal Effects</title>
+  <style>
+    body {
+      margin: 0;
+    }
+    canvas {
+      touch-action: none;
+    }
+  </style>
+</head>
+
+<body>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.178.0/three.module.js",
+		"three/addons/": "https://unpkg.com/three@0.155.0/examples/jsm/",
+        "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/0.1.10/spark.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+	import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+	import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+    import { SparkControls, SparkRenderer ,SplatMesh, dyno } from "@sparkjsdev/spark";
+    // import { getAssetFileURL } from "/examples/js/get-asset-url.js";
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    
+    // Initialize camera with elevated perspective
+    camera.position.set(0, 2, 2.5);
+    camera.lookAt(0, 0, 0);
+    
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    window.addEventListener('resize', onWindowResize, false);
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Animation timing variables
+    const animateT = dyno.dynoFloat(0);
+    let baseTime = 0;
+    let splatLoaded = false;
+	let splat2Loaded = false;
+    
+    // Camera orbit parameters
+    let cameraAngle = 0;
+    const cameraRadius = 3;
+    const cameraHeight = 2;
+    const rotationSpeed = 0.2;
+
+    // Available visual effects configuration
+    const effectParams = {
+      effect: "Rain"
+    };
+
+    let splatMesh = null;
+	let splatMesh2 = null;
+
+      /**
+       * Loads and configures splat mesh based on selected effect
+       * @param {string} effect - The effect type (Magic, Spread, Unroll, Twister, or Rain)
+       */
+    async function loadSplatForEffect(effect) {
+      // Clean up existing splat mesh
+      if (splatMesh) {
+        scene.remove(splatMesh);
+        splatMesh = null;
+      }
+
+      // Configure splat file and positioning per effect
+      let position;
+      position = [0, 0, 0];
+
+	  const cabane_scale = 0.2;
+	  const cabane_y_pos = 0;
+
+      // Load and initialize new splat mesh
+      // const splatURL = await getAssetFileURL("Cabane_ete_sablier_sol.spz");
+      splatMesh = new SplatMesh({ url: "./Cabane_ete_sablier_sol.spz" });
+      splatMesh.quaternion.set(1, 0, 0, 0);
+      splatMesh.position.set(0, -cabane_y_pos, 0);
+	  splatMesh.scale.set(cabane_scale,cabane_scale,cabane_scale);
+	  splatMesh.enableViewToWorld = true;
+	  splatMesh.enableWorldToView = true;
+	  splatMesh.enableViewToObject = true;
+	  
+	  
+	  // const splatURL2 = await getAssetFileURL("Cabane_hivers_sablier_sol.spz");
+      splatMesh2 = new SplatMesh({ url: "./Cabane_hivers_sablier_sol.spz" });
+      splatMesh2.quaternion.set(1, 0, 0, 0);
+      splatMesh2.position.set(0, cabane_y_pos, 0);
+	  splatMesh2.scale.set(cabane_scale,cabane_scale,cabane_scale);
+	  splatMesh2.enableViewToWorld = true;
+	  splatMesh2.enableWorldToView = true;
+	  splatMesh2.enableViewToObject = true;
+	  
+	  // const transparentMaterial = new THREE.MeshPhysicalMaterial({
+		// transparent: true,
+		// envMap: scene.background,  
+		// opacity: 0.5,
+		// color: 0xffffff,
+		// roughness: 0.3,
+		// combine: THREE.MixOperation,
+		// reflectivity: 0.5 
+	  // });
+	    
+	  const transparentMaterial = new THREE.MeshPhysicalMaterial( {
+	  	color: 0xffffff,
+	  	metalness: 0.1,
+	  	roughness: 0.2,
+	  	ior: 1.5,
+	  	// alphaMap: texture,
+	  	envMap: scene.background,
+	  	envMapIntensity: 1,
+	  	transmission: 0.9, // use material.transmission for glass materials
+	  	specularIntensity: 1,
+	  	specularColor: 0xffffff,
+	  	opacity: 1,
+	  	side: THREE.DoubleSide,
+	  	transparent: true
+	  } );
+	  
+	  // const transparentMaterial = new THREE.MeshPhysicalMaterial ({
+		// transparent: true,
+		// opacity: 0.1,
+		// roughness: 0.3,
+		// color: 0xffffff
+	  // });
+	  
+	  // transparentMaterial.side = THREE.DoubleSide;
+	  transparentMaterial.depthTest = false;
+	  transparentMaterial.deptWrite = true;
+	  // transparentMaterial.combine = THREE.MultiplyOperation; //MultiplyOperation | MixOperation | AddOperation;
+	  
+	  const loader = new FBXLoader();
+	  const object = await loader.loadAsync( './sablier.FBX' );
+	  const sablier_scale = 0.045;
+	  object.scale.set(sablier_scale,sablier_scale,sablier_scale);
+
+	  
+      const light = new THREE.PointLight( 0xffffff, 1000, 1000 );
+	  light.position.set( 50, 50, 50 );
+	  scene.add( light );
+		  
+	  
+      scene.add(splatMesh);
+	  scene.add(splatMesh2);
+
+      // Wait for asset loading and reset animation timing
+      splatLoaded = false;
+	  splat2Loaded = false;
+      await splatMesh.loaded;
+	  await splatMesh2.loaded;
+      splatLoaded = true;
+	  splat2Loaded = true;
+      baseTime = 0;
+
+      // Apply visual effects to the loaded splat
+      setupSplatModifier(splatMesh, 6);
+	  setupSplatModifier(splatMesh2, 5);	 	  
+	  
+	  scene.add( object );
+	  const mesh = scene.getObjectByName("sablier");
+	  mesh.material = transparentMaterial;
+	  
+    }
+
+	const duration = 17.5;
+    /**
+     * Configures visual effects shader for the current splat mesh
+     */
+    function setupSplatModifier(s_mesh, effect_index) {
+      s_mesh.objectModifier = dyno.dynoBlock(
+      { gsplat: dyno.Gsplat },
+      { gsplat: dyno.Gsplat },
+      ({ gsplat }) => {
+        const d = new dyno.Dyno({
+          inTypes: { gsplat: dyno.Gsplat, t: "float", effectType: "int" },
+          outTypes: { gsplat: dyno.Gsplat },
+          // GLSL utility functions for effects
+          globals: () => [
+            dyno.unindent(`
+              // Pseudo-random hash function
+              vec3 hash(vec3 p) {
+                p = fract(p * 0.3183099 + 0.1);
+                p *= 17.0;
+                return fract(vec3(p.x * p.y * p.z, p.x + p.y * p.z, p.x * p.y + p.z));
+              }
+
+              // 2D rotation matrix
+              mat2 rot(float a) {
+                float s=sin(a),c=cos(a);
+                return mat2(c,-s,s,c);
+              }
+
+
+              // Rain weather effect
+              vec4 rain_up(vec3 pos, vec3 scale, float t) {
+                vec3 h = hash(pos);
+				float tu = t + 0.0f;
+                float s = pow(smoothstep(0., 5., tu*tu*.1 - length(pos.xz)*2. + 1.), .5 + h.x);
+                float y = pos.y;
+                pos.y = max(0. - s*30., pos.y);
+                pos.xz = mix(pos.xz*.003, pos.xz, s);
+                // pos.xz *= rot(t*.3);
+                return vec4(pos, smoothstep(-10., y, pos.y));
+              }
+			  
+			  vec4 rain(vec3 pos, vec3 scale, float t) {
+                vec3 h = hash(pos);
+				float tu = 17.5f - t;
+                float s = pow(smoothstep(0., 5., tu*tu*.1 - length(pos.xz)*2. + 1.), .5 + h.x);
+				// float s = pow(smoothstep(0., 5., t*t*.1 - length(pos.xz)*2. + 1.), .5 + h.x);
+                float y = pos.y;
+                pos.y = min(0. + s*30., pos.y);
+                pos.xz = mix(pos.xz*.003, pos.xz, s);
+                // pos.xz *= rot(t*.3);
+                return vec4(pos, smoothstep(-10., y, pos.y));
+              }
+            `)
+          ],
+          // Main effect shader logic
+          statements: ({ inputs, outputs }) => dyno.unindentLines(`
+            ${outputs.gsplat} = ${inputs.gsplat};
+            float t = ${inputs.t};
+			float t_up = ${inputs.t};
+            float s = smoothstep(0.,10.,t-4.5)*10.;
+            vec3 scales = ${inputs.gsplat}.scales;
+            vec3 localPos = ${inputs.gsplat}.center;
+            float l = length(localPos.xz);
+            
+
+            // if (${inputs.effectType} == 5) {
+			if (${effect_index} == 5) {
+              // Rain Effect: falling streaks
+              vec4 effectResult = rain(localPos, scales, t);
+              ${outputs.gsplat}.center = effectResult.xyz;
+              ${outputs.gsplat}.scales = mix(vec3(.005), scales, pow(effectResult.w, 30.));
+              // Also apply a spin (self-rotation) so each splat rotates about its own center.
+              float spin = -t*.3;
+              vec4 spinQ = vec4(0.0, sin(spin*0.5), 0.0, cos(spin*0.5));
+              ${outputs.gsplat}.quaternion = quatQuat(spinQ, ${inputs.gsplat}.quaternion);
+            }
+			if (${effect_index} == 6) {
+              // Rain Effect: falling streaks
+              vec4 effectResult = rain_up(localPos, scales, t);
+              ${outputs.gsplat}.center = effectResult.xyz;
+              ${outputs.gsplat}.scales = mix(vec3(.005), scales, pow(effectResult.w, 30.));
+              // Also apply a spin (self-rotation) so each splat rotates about its own center.
+              float spin = -t*.3;
+              vec4 spinQ = vec4(0.0, sin(spin*0.5), 0.0, cos(spin*0.5));
+              ${outputs.gsplat}.quaternion = quatQuat(spinQ, ${inputs.gsplat}.quaternion);
+            }
+          `),
+        });
+
+        // Map effect names to shader integer constants
+        const effectType = effectParams.effect === "Magic" ? 1 : 
+                          effectParams.effect === "Spread" ? 2 : 
+                          effectParams.effect === "Unroll" ? 3 : 
+                          effectParams.effect === "Twister" ? 4 : 5;
+        
+        gsplat = d.apply({ 
+          gsplat, 
+          t: animateT,
+          effectType: dyno.dynoInt(effectType)
+        }).gsplat;
+        
+        return { gsplat };
+      }
+    );
+
+      // Apply shader modifications to splat mesh
+      splatMesh.updateGenerator();
+	  splatMesh2.updateGenerator();
+    }
+
+    // Initialize with default effect
+    await loadSplatForEffect(effectParams.effect);
+
+    // Initialize camera controls and start render loop
+    const controls = new SparkControls({ canvas: renderer.domElement });
+	
+	
+	let sphericalTarget = new THREE.Spherical(1, Math.PI / 2 - 0, 1)
+	let target = new THREE.Vector3().setFromSpherical(sphericalTarget) 
+
+	// Setup mouse controls to orbit the camera around
+    const orbitControls = new OrbitControls(camera, renderer.domElement);
+    orbitControls.enabled = true;
+    // orbitControls.target.set(0, 0, 0);
+	orbitControls.target = target;
+    orbitControls.minDistance = 1;
+    orbitControls.maxDistance = 20;
+	orbitControls.enableDamping = true;	
+	
+	// const globalPlane = new THREE.Plane( new THREE.Vector3( 1, 0, 0 ), 0.0 );
+	// renderer.clippingPlanes = [globalPlane];
+	
+	// le ciel
+	const tex_loader = new THREE.CubeTextureLoader();
+	tex_loader.setPath( 'textures/' );
+
+	// const textureCube = tex_loader.load([
+	  // 'Cold Night__Cam_2_Left+X.png','Cold Night__Cam_3_Right-X.png',
+	  // 'Cold Night__Cam_4_Up+Y.png','Cold Night__Cam_5_Down-Y.png',
+	  // 'Cold Night__Cam_0_Front+Z.png', 'Cold Night__Cam_1_Back-Z.png'
+	// ]);
+	const textureCube = tex_loader.load([
+	  'Night Moon Burst_Cam_2_Left+X.png','Night Moon Burst_Cam_3_Right-X.png',
+	  'Night Moon Burst_Cam_4_Up+Y.png','Night Moon Burst_Cam_5_Down-Y.png',
+	  'Night Moon Burst_Cam_0_Front+Z.png', 'Night Moon Burst_Cam_1_Back-Z.png'
+	]);
+
+	scene.background = textureCube;
+	// scene.environmentRotation =(0,90,90);
+	camera.position.set( 0, 0, 100 );
+	let incr = 1;
+    renderer.setAnimationLoop(function animate(time) {
+      // Update animation timing
+      if (splatLoaded && splat2Loaded) {
+		if(baseTime > duration)
+		{
+		  baseTime = duration;
+		  incr = - incr;
+		}
+		else if (baseTime <0)
+		{
+		  baseTime = 0;
+		  incr = - incr;
+		}
+
+		baseTime += incr * 1/100;
+		
+		
+        animateT.value = baseTime;
+      } else {
+        animateT.value = 0;
+      }
+      
+	  console.log(baseTime);
+	  
+      // Orbit camera only for non-weather effects
+      // cameraAngle += rotationSpeed * (1/60);
+      // if (effectParams.effect == "Twister" || effectParams.effect == "Rain") cameraAngle = 0;
+      // camera.position.x = Math.cos(cameraAngle) * cameraRadius;
+      // camera.position.z = Math.sin(cameraAngle) * cameraRadius;
+      // camera.position.y = cameraHeight;
+    
+      // Adjust camera target based on current effect
+      // if (effectParams.effect === "Spread") {
+        // camera.lookAt(0, 1, 0);
+      // } else {
+        // camera.lookAt(0, 0, 0);
+      // }
+      
+      // Update splat rendering if available
+      if (splatMesh) {
+        splatMesh.updateVersion();
+      }
+	  if (splatMesh2) {
+        splatMesh2.updateVersion();
+      }
+	  
+      orbitControls.update();
+      // controls.update(camera);
+	  // camera.rotation.z = Math.PI;
+      renderer.render(scene, camera);
+    });
+  </script>
+</body>
+
+</html>
